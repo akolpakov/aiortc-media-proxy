@@ -4,7 +4,7 @@ import os
 from aiohttp import web
 from aiohttp_validate import validate
 
-from aiortc_media_proxy.stream_pool import StreamPool
+from aiortc_media_proxy.stream import StreamPool
 from aiortc_media_proxy.utils.log import log
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,22 +21,26 @@ async def handle_admin_panel(request):
         "type": "object",
         "properties": {
             "url": {"type": "string"},
+            "sdp": {"type": "string"},
+            "type": {"type": "string"},
         },
-        "required": ["url"],
+        "required": ["url", "sdp", "type"],
         "additionalProperties": False
     }
 )
 async def handle_stream_creation(request, *args):
-    url = request["url"]
+    url = request['url']
+    rtc_sdp = request['sdp']
+    rtc_type = request['type']
+
+    url = os.path.join(BASE_DIR, 'demo-instruct.wav')
 
     log.debug(f'Create new stream {url}')
 
     pool = StreamPool()
-    stream = await pool.get_stream(url)
+    stream = await pool.get_stream(url, rtc_sdp, rtc_type)
 
-    return web.json_response({
-        'stream': stream
-    })
+    return web.json_response(stream.get_js_object())
 
 
 async def handle_stream_get_list(request, *args):
@@ -46,7 +50,7 @@ async def handle_stream_get_list(request, *args):
     streams = await pool.get_streams()
 
     return web.json_response({
-        'streams': list(streams)
+        'streams': [stream.get_js_object() for stream in streams.values()]
     })
 
 
