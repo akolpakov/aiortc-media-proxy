@@ -7,5 +7,3 @@ services:
       - "8000:80"
     volumes:
       - .:/app
-    environment:
-      DEBUG: 1
