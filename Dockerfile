@@ -1,8 +1,5 @@
 FROM python:3
 
-# install requirements for aiortc
-# https://github.com/aiortc/aiortc
-
 RUN apt-get update && apt-get install -y \
     libavdevice-dev \
     libavfilter-dev \

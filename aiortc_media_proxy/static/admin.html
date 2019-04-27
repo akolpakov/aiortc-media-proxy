@@ -31,10 +31,10 @@
                 <small id="urlHelp" class="form-text text-muted">You can create RTSP streams, for example rtsp://user:password@ip:port/path</small>
             </form>
 
-            <div class="media">
-                <audio id="audio" :srcObject="stream.audio" autoplay></audio>
-                <video id="video" :srcObject="stream.video" autoplay></video>
-            </div>
+<!--            <div class="media">-->
+<!--                <audio id="audio" :srcObject="stream.audio" autoplay></audio>-->
+<!--                <video id="video" :srcObject="stream.video" autoplay></video>-->
+<!--            </div>-->
 
             <div class="text-center mt-4">
                 Current media: {{ streams.length }} <button @click.prevent="refresh_streams" type="button" class="btn btn-sm btn-outline-secondary ml-4">Refresh</button>
@@ -42,7 +42,11 @@
 
             <div class="mt-4">
                 <div v-for="stream in streams" class="media-body p-3 mb-0 small lh-125 border-bottom border-gray">
-                    <a @click.prevent="select_stream(stream)" href="#">{{ stream.url }}</a>
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <a @click.prevent="select_stream(stream)" href="#">{{ stream.key }}</a>
+                        <span class="text-muted">TTL: {{ stream.ttl }}</span>
+                    </div>
+                    <span class="d-block">{{ stream.url }}</span>
                 </div>
             </div>
 

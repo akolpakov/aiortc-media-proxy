@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -21,26 +22,20 @@ async def handle_admin_panel(request):
         "type": "object",
         "properties": {
             "url": {"type": "string"},
-            "sdp": {"type": "string"},
-            "type": {"type": "string"},
         },
-        "required": ["url", "sdp", "type"],
+        "required": ["url"],
         "additionalProperties": False
     }
 )
 async def handle_stream_creation(request, *args):
     url = request['url']
-    rtc_sdp = request['sdp']
-    rtc_type = request['type']
-
-    url = os.path.join(BASE_DIR, 'demo-instruct.wav')
 
     log.debug(f'Create new stream {url}')
 
     pool = StreamPool()
-    stream = await pool.get_stream(url, rtc_sdp, rtc_type)
+    stream = await pool.create_stream(url)
 
-    return web.json_response(stream.get_js_object())
+    return web.json_response(stream.get_json_object())
 
 
 async def handle_stream_get_list(request, *args):
@@ -50,11 +45,11 @@ async def handle_stream_get_list(request, *args):
     streams = await pool.get_streams()
 
     return web.json_response({
-        'streams': [stream.get_js_object() for stream in streams.values()]
+        'streams': [stream.get_json_object() for stream in streams.values()]
     })
 
 
-def init():
+async def init():
     log.info('Init application')
 
     app = web.Application()
@@ -64,4 +59,9 @@ def init():
     app.router.add_get('/stream', handle_stream_get_list)
     app.router.add_static('/static', os.path.join(BASE_DIR, 'static'), name='static')
 
-    web.run_app(app, port=80)
+    # run concurent web server and cleaner task
+
+    await asyncio.gather(
+        web._run_app(app, port=80),
+        StreamPool().close_expired_streams()
+    )

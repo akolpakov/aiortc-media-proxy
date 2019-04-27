@@ -1,66 +1,49 @@
-from aiortc import RTCSessionDescription, RTCPeerConnection
-from aiortc.contrib.media import MediaPlayer
+import asyncio
+import hashlib
+from time import time
 
 from aiortc_media_proxy.utils.log import log
 from .utils.singleton import Singleton
 
 
 class Stream:
-    VIDEO_OPTIONS = dict(
-        framerate='30',
-        video_size='640x480'
-    )
+    TTL = 60
+    time_up = 0
 
-    def __init__(self, url, rtc_sdp, rtc_type):
+    def __init__(self, url):
         self.url = url
-        self.rtc_sdp = rtc_sdp
-        self.rtc_type = rtc_type
-        self.pc = None
+        self.key = self.get_key(url)
+        self.up()
 
-    async def init(self):
-        self.pc = await self.__init()
+    @staticmethod
+    def get_key(url):
+        return hashlib.sha224(url.encode('utf-8')).hexdigest()
+
+    @property
+    def ttl(self):
+        return max(self.TTL - int(time() - self.time_up), 0)
+
+    def up(self):
+        self.time_up = time()
+
+    async def start(self):
+        # self.ffmpeg_process = (
+        #     ffmpeg
+        #         .input(self.stream_url, fflags='nobuffer', flags='low_delay',
+        #                **self.ffmpeg_stream_args)  # , skip_frame='nokey'
+        #         .output('pipe:', format='rawvideo', pix_fmt='rgb24')['v']
+        #         .run_async(pipe_stdout=True, quiet=True)
+        # )
         return self
 
-    async def __init(self):
+    async def stop(self):
+        pass
 
-        # init RTC
-
-        pc = RTCPeerConnection()
-
-        @pc.on('iceconnectionstatechange')
-        async def on_iceconnectionstatechange():
-            log.info('ICE connection state is %s' % pc.iceConnectionState)
-
-            if pc.iceConnectionState == 'failed':
-                await pc.close()
-                log.info('!!!!!!!!!!!')
-                # self.pcs.discard(pc)
-
-        # Init player
-
-        player = MediaPlayer(self.url)
-
-        # Add transceivers
-
-        offer = RTCSessionDescription(sdp=self.rtc_sdp, type=self.rtc_type)
-        await pc.setRemoteDescription(offer)
-
-        for t in pc.getTransceivers():
-            if t.kind == 'audio' and player.audio:
-                pc.addTrack(player.audio)
-            elif t.kind == 'video' and player.video:
-                pc.addTrack(player.video)
-
-        answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-
-        return pc
-
-    def get_js_object(self):
+    def get_json_object(self):
         return dict(
             url=self.url,
-            sdp=self.pc.localDescription.sdp,
-            type=self.pc.localDescription.type,
+            key=self.key,
+            ttl=self.ttl,
         )
 
 
@@ -70,12 +53,30 @@ class StreamPool(metaclass=Singleton):
     async def get_streams(self):
         return self.streams
 
-    async def get_stream(self, url, rtc_sdp, rtc_type):
-        # if url not in self.streams:
-        #     self.streams[url] = await self.create_stream(url, rtc_sdp, rtc_type)
-        # return self.streams[url]
-        return await self.create_stream(url, rtc_sdp, rtc_type)
+    async def create_stream(self, url):
+        key = Stream.get_key(url)
 
-    async def create_stream(self, url, rtc_sdp, rtc_type):
-        stream = Stream(url, rtc_sdp, rtc_type)
-        return await stream.init()
+        if key not in self.streams:
+            self.streams[key] = Stream(url)
+
+        self.streams[key].up()
+
+        return self.streams[key]
+
+    async def close_expired_streams(self):
+        while True:
+
+            # get expired streams
+
+            to_remove = []
+            for key, stream in self.streams.items():
+                if stream.ttl <= 0:
+                    await stream.stop()
+                    to_remove.append(key)
+
+            # remove streams
+
+            for key in to_remove:
+                del self.streams[key]
+
+            await asyncio.sleep(10)
