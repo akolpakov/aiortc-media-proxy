@@ -6,38 +6,57 @@ const app = new Vue({
             url: null,
             error: null,
         },
-        pc: new RTCPeerConnection({
-            sdpSemantics: 'unified-plan'
-        }),
-        stream: {
-            audio: null,
-            video: null,
-        }
+        webSocket: null,
     },
     methods: {
-        refresh_streams: async function() {
+        refreshStreams: async function() {
             const response = await this.$http.get('/stream');
             this.streams = response.data.streams;
         },
-        create_stream: async function() {
+        createStream: async function() {
             this.form.error = null;
 
             const data = {
                 url: this.form.url
             };
             try {
-                await this.$http.post('/stream', data);
-                await this.refresh_streams()
+                const response = await this.$http.post('/stream', data);
+                const stream = response.data;
+                await this.createWebSocket(stream);
+                await this.refreshStreams()
             } catch(err) {
                 this.form.error = err
             }
         },
-        select_stream: async function(stream) {
+        selectStream: async function(stream) {
             this.form.url = stream.url;
-            await this.create_stream();
+            await this.createStream();
+        },
+        createWebSocket: async function(stream) {
+            await this.closeWebSocket();
+
+            this.webSocket = new WebSocket('ws://127.0.0.1:8000/ws/' + stream.key);
+
+            this.webSocket.onopen = function (event) {
+                console.log('Socket ' + stream.key + ' opened');
+            };
+
+            this.webSocket.onmessage = function (event) {
+                console.log(event.data);
+            };
+
+            this.webSocket.onerror = function (event) {
+                this.form.error = 'WebSocket unexpectedly closed'
+            }
+        },
+        closeWebSocket: async function() {
+            if (this.webSocket) {
+                await this.webSocket.close();
+                this.webSocket = null;
+            }
         }
     },
     created: async function () {
-        await this.refresh_streams();
+        await this.refreshStreams();
     }
 });

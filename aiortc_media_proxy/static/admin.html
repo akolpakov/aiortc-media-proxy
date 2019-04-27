@@ -19,7 +19,7 @@
                 <p class="lead">This admin panel shows current streams in the proxy and provides interface to create new streams</p>
             </div>
 
-            <form @submit.prevent="create_stream">
+            <form @submit.prevent="createStream">
                 <div v-if="form.error" class="alert alert-danger" role="alert">{{ form.error }}</div>
                 <div class="input-group">
                     <input v-model="form.url" type="text" class="form-control" id="url" aria-describedby="urlHelp" placeholder="Enter url" required>
@@ -37,13 +37,13 @@
 <!--            </div>-->
 
             <div class="text-center mt-4">
-                Current media: {{ streams.length }} <button @click.prevent="refresh_streams" type="button" class="btn btn-sm btn-outline-secondary ml-4">Refresh</button>
+                Current media: {{ streams.length }} <button @click.prevent="refreshStreams" type="button" class="btn btn-sm btn-outline-secondary ml-4">Refresh</button>
             </div>
 
             <div class="mt-4">
                 <div v-for="stream in streams" class="media-body p-3 mb-0 small lh-125 border-bottom border-gray">
                     <div class="d-flex justify-content-between align-items-center w-100">
-                        <a @click.prevent="select_stream(stream)" href="#">{{ stream.key }}</a>
+                        <a @click.prevent="selectStream(stream)" href="#">{{ stream.key }}</a>
                         <span class="text-muted">TTL: {{ stream.ttl }}</span>
                     </div>
                     <span class="d-block">{{ stream.url }}</span>

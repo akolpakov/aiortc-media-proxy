@@ -9,6 +9,9 @@ from .utils.singleton import Singleton
 class Stream:
     TTL = 60
     time_up = 0
+    ws_task = None
+
+    _test = 1
 
     def __init__(self, url):
         self.url = url
@@ -26,7 +29,27 @@ class Stream:
     def up(self):
         self.time_up = time()
 
-    async def start(self):
+    async def stream_to_client_task(self, ws):
+        try:
+            while True:
+                log.info(f'Send {self.key}: {self._test}. {ws.closed}')
+
+                await ws.send_str(f'{self.key}: {self._test}')
+                await ws.drain()
+
+                # HACK: https://github.com/aio-libs/aiohttp/issues/3391
+                if ws._req.transport.is_closing():
+                    log.info('Seems connection was interrupted')
+                    break
+
+                await asyncio.sleep(1)
+                self._test += 1
+
+        except Exception as error:
+            await ws.close()
+
+    async def start(self, ws):
+        self.ws_task = asyncio.create_task(self.stream_to_client_task(ws))
         # self.ffmpeg_process = (
         #     ffmpeg
         #         .input(self.stream_url, fflags='nobuffer', flags='low_delay',
@@ -37,7 +60,8 @@ class Stream:
         return self
 
     async def stop(self):
-        pass
+        if self.ws_task:
+            self.ws_task.cancel()
 
     def get_json_object(self):
         return dict(
@@ -63,8 +87,10 @@ class StreamPool(metaclass=Singleton):
 
         return self.streams[key]
 
-    async def close_expired_streams(self):
+    async def cleanup_task(self):
         while True:
+
+            log.debug('Run cleanup_task')
 
             # get expired streams
 
