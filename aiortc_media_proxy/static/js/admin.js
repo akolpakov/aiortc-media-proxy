@@ -6,7 +6,9 @@ const app = new Vue({
             url: null,
             error: null,
         },
-        webSocket: null,
+        stream: null,
+        jsmpeg: null,
+        jsmpeReady: false,
     },
     methods: {
         refreshStreams: async function() {
@@ -21,8 +23,8 @@ const app = new Vue({
             };
             try {
                 const response = await this.$http.post('/stream', data);
-                const stream = response.data;
-                await this.createWebSocket(stream);
+                this.stream = response.data;
+                await this.showStream();
                 await this.refreshStreams()
             } catch(err) {
                 this.form.error = err
@@ -32,29 +34,25 @@ const app = new Vue({
             this.form.url = stream.url;
             await this.createStream();
         },
-        createWebSocket: async function(stream) {
-            await this.closeWebSocket();
+        showStream: async function(stream) {
+            const player_canvas = document.getElementById('player');
+            this.jsmpeReady = false;
 
-            this.webSocket = new WebSocket('ws://127.0.0.1:8000/ws/' + stream.key);
-
-            this.webSocket.onopen = function (event) {
-                console.log('Socket ' + stream.key + ' opened');
-            };
-
-            this.webSocket.onmessage = function (event) {
-                console.log(event.data);
-            };
-
-            this.webSocket.onerror = function (event) {
-                this.form.error = 'WebSocket unexpectedly closed'
+            if (this.jsmpeg) {
+                this.jsmpeg.destroy();
             }
+
+            // player.style.display = "none";
+            this.jsmpeg = new JSMpeg.Player(this.stream.ws, {
+                autoplay: true,
+                canvas: player_canvas,
+                onPlay: () => {
+                    this.jsmpeReady = true;
+                }
+            });
+
+            player_canvas.style.maxWidth = '100%';
         },
-        closeWebSocket: async function() {
-            if (this.webSocket) {
-                await this.webSocket.close();
-                this.webSocket = null;
-            }
-        }
     },
     created: async function () {
         await this.refreshStreams();

@@ -6,7 +6,7 @@ from aiohttp import web
 from aiohttp_validate import validate
 
 from aiortc_media_proxy.stream import StreamPool
-from aiortc_media_proxy.utils.log import log
+from aiortc_media_proxy.log import log
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -56,7 +56,7 @@ async def handle_ws(request):
 
     log.info(f'Create websocket {key}')
 
-    sender_task = asyncio.create_task(stream.start(ws))
+    sender_task = asyncio.create_task(stream.stream_to_client_task(ws))
 
     try:
         async for msg in ws:

@@ -1,10 +1,7 @@
-FROM python:3
+FROM python:3-stretch
 
-RUN apt-get update && apt-get install -y \
-    libavdevice-dev \
-    libavfilter-dev \
-    libopus-dev \
-    libvpx-dev pkg-config
+RUN apt-get update
+RUN apt-get install -y ffmpeg
 
 # Install python requirements
 
