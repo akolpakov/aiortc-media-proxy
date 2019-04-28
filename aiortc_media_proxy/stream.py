@@ -8,23 +8,26 @@ from aiortc_media_proxy.log import log
 
 
 class Stream:
-    TTL = 60    # TODO: dynamic
     time_up = 0
 
     ffmpeg_process = None
 
-    def __init__(self, url):
-        self.url = url
-        self.key = self.get_key(url)
+    def __init__(self, uri, options=None):
+        self.uri = uri
+        self.options = options
+        self.rtsp_transport = options and options.get('rtsp_transport')
+        self.timeout = options and options.get('timeout') or 60
+        self.width = options and options.get('width') or 640
+        self.key = self.get_key(uri)
         self.up()
 
     @staticmethod
-    def get_key(url):
-        return hashlib.sha224(url.encode('utf-8')).hexdigest()
+    def get_key(uri):
+        return hashlib.sha224(uri.encode('utf-8')).hexdigest()
 
     @property
     def ttl(self):
-        return max(self.TTL - int(time() - self.time_up), 0)
+        return max(self.timeout - int(time() - self.time_up), 0)
 
     def up(self):
         self.time_up = time()
@@ -51,10 +54,16 @@ class Stream:
             await ws.close()
 
     async def start(self):
+
+        input_params = dict()
+
+        if self.rtsp_transport:
+            input_params['rtsp_transport'] = self.rtsp_transport
+
         args = (
             ffmpeg
-                .input(self.url, fflags='nobuffer', flags='low_delay',)
-                .filter('scale', 640, -1)   # TODO: dynamic
+                .input(self.uri, fflags='nobuffer', flags='low_delay', **input_params)
+                .filter('scale', self.width, -1)   # TODO: dynamic
                 .output('pipe:', format='mpegts', vcodec='mpeg1video')['v']
                 .get_args()
         )
@@ -70,9 +79,10 @@ class Stream:
 
     def get_json_object(self):
         return dict(
-            url=self.url,
+            uri=self.uri,
             key=self.key,
             ttl=self.ttl,
+            options=self.options,
             ws=f'ws://127.0.0.1:8000/ws/{self.key}'     # TODO: dynamic
         )
 
@@ -92,11 +102,11 @@ class StreamPool:
     async def get_streams(self):
         return self.streams
 
-    async def create_stream(self, url):
-        key = Stream.get_key(url)
+    async def create_stream(self, uri, options):
+        key = Stream.get_key(uri)
 
         if key not in self.streams:
-            self.streams[key] = Stream(url)
+            self.streams[key] = Stream(uri, options)
             asyncio.create_task(self.streams[key].start())
 
         self.streams[key].up()

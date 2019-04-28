@@ -3,7 +3,12 @@ const app = new Vue({
     data: {
         streams: [],
         form: {
-            url: null,
+            uri: null,
+            options: {
+                rtsp_transport: null,
+                timeout: null,
+                width: null,
+            },
             error: null,
         },
         stream: null,
@@ -19,8 +24,14 @@ const app = new Vue({
             this.form.error = null;
 
             const data = {
-                url: this.form.url
+                uri: this.form.uri,
+                options: {
+                    rtsp_transport: this.form.options.rtsp_transport,
+                    timeout: parseInt(this.form.options.timeout),
+                    width: parseInt(this.form.options.width),
+                }
             };
+
             try {
                 const response = await this.$http.post('/stream', data);
                 this.stream = response.data;
@@ -31,7 +42,8 @@ const app = new Vue({
             }
         },
         selectStream: async function(stream) {
-            this.form.url = stream.url;
+            this.form.uri = stream.uri;
+            this.form.options = stream.options;
             await this.createStream();
         },
         showStream: async function(stream) {

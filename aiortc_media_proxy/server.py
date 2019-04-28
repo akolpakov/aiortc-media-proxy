@@ -21,18 +21,26 @@ async def handle_admin_panel(request):
     request_schema={
         "type": "object",
         "properties": {
-            "url": {"type": "string"},
+            "uri": {"type": "string"},
+            "options": {
+                "type": "object",
+                "properties": {
+                    "rtsp_transport": {"type": ["string", "null"]},
+                    "timeout": {"type": ["integer", "null"]},
+                    "width": {"type": ["integer", "null"]},
+                }
+            }
         },
-        "required": ["url"],
+        "required": ["uri"],
         "additionalProperties": False
     }
 )
 async def handle_stream_creation(params, request):
-    url = params['url']
+    uri = params['uri']
 
-    log.debug(f'Create new stream {url}')
+    log.debug(f'Create new stream {uri}')
 
-    stream = await request.app['stream_pool'].create_stream(url)
+    stream = await request.app['stream_pool'].create_stream(uri, params['options'])
 
     return web.json_response(stream.get_json_object())
 
