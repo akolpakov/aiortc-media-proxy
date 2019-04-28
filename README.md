@@ -8,7 +8,6 @@ This project is for experiment
 - Handle if stream is interrupted
 - Handle timeouts
 - Test solution
-- Upload to the dockerhub
 - Authentication
 - Verify passed params
 - More params to pass

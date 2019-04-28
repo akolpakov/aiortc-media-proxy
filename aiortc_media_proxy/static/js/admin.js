@@ -54,7 +54,6 @@ const app = new Vue({
                 this.jsmpeg.destroy();
             }
 
-            // player.style.display = "none";
             this.jsmpeg = new JSMpeg.Player(this.stream.ws, {
                 autoplay: true,
                 canvas: player_canvas,

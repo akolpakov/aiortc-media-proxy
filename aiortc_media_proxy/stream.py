@@ -83,7 +83,7 @@ class Stream:
             key=self.key,
             ttl=self.ttl,
             options=self.options,
-            ws=f'ws://127.0.0.1:8000/ws/{self.key}'     # TODO: dynamic
+            ws=f'/ws/{self.key}'
         )
 
     async def _read_ffmpeg_stream(self):

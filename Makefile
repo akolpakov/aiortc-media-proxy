@@ -6,3 +6,7 @@ build:
 
 up:
 	$(DOCKER_COMPOSE) up
+
+docker-push-latest:
+	docker build -t akolpakov/aiortc-media-proxy:latest .
+	docker push akolpakov/aiortc-media-proxy:latest
