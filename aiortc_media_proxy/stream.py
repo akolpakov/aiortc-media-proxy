@@ -70,10 +70,10 @@ class Stream:
 
         self.ffmpeg_process = await asyncio.create_subprocess_exec('ffmpeg', *args, stdout=asyncio.subprocess.PIPE)
 
-    async def stop(self):
+    def stop(self):
         if self.ffmpeg_process:
             try:
-                await self.ffmpeg_process.terminate()
+                self.ffmpeg_process.terminate()
             except ProcessLookupError:
                 pass
 
@@ -123,7 +123,7 @@ class StreamPool:
             to_remove = []
             for key, stream in self.streams.items():
                 if stream.ttl <= 0:
-                    await stream.stop()
+                    stream.stop()
                     to_remove.append(key)
 
             # remove streams
