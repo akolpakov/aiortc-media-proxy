@@ -65,7 +65,10 @@ async def handle_ws(request):
 
     log.info(f'Create websocket {key}')
 
-    sender_task = asyncio.create_task(stream.stream_to_client_task(ws))
+    stream.ws_add(ws)
+
+    if not stream.is_started():
+        await stream.start()
 
     try:
         async for msg in ws:
@@ -77,7 +80,7 @@ async def handle_ws(request):
                 break
     finally:
         log.info(f'Close websocket {key}')
-        sender_task.cancel()
+        stream.ws_remove(ws)
 
     return ws
 

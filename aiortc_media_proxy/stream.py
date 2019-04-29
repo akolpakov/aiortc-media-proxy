@@ -8,18 +8,22 @@ from aiortc_media_proxy.log import log
 
 
 class Stream:
+    FFMPEG_READ_TIMEOUT = 10
     time_up = 0
 
     ffmpeg_process = None
 
     def __init__(self, uri, options=None):
         self.uri = uri
+        self.key = self.get_key(uri)
+        self.ws_list = list()
+
         self.options = options
         self.rtsp_transport = options and options.get('rtsp_transport')
         self.timeout = options and options.get('timeout') or 60
         self.width = options and options.get('width') or 640
-        self.key = self.get_key(uri)
-        self.up()
+
+        # self.up()
 
     @staticmethod
     def get_key(uri):
@@ -32,28 +36,64 @@ class Stream:
     def up(self):
         self.time_up = time()
 
-    async def stream_to_client_task(self, ws):
+    def ws_add(self, ws):
+        self.ws_list.append(ws)
+
+    def ws_remove(self, ws):
+        self.ws_list.remove(ws)
+
+    async def ws_send(self, ws, frame):
+        try:
+            log.info(f'Send {self.key}: {len(frame)}')
+            await ws.send_bytes(frame)
+            await ws.drain()
+
+            # HACK: https://github.com/aio-libs/aiohttp/issues/3391
+            if ws._req.transport.is_closing():
+                log.info('Seems connection was interrupted')
+                await ws.close()
+        except Exception as error:
+            log.error(f'Error when send to ws: {error}')
+            await ws.close()
+
+    async def start(self):
+        await self.ffmpeg_start_process()
+
+        read_timout = 0
+
         try:
             while True:
                 frame = await self._read_ffmpeg_stream()
 
                 if frame:
-                    log.info(f'Send {self.key}: {len(frame)}')
-                    await ws.send_bytes(frame)
-                    await ws.drain()
-
-                # HACK: https://github.com/aio-libs/aiohttp/issues/3391
-                if ws._req.transport.is_closing():
-                    log.info('Seems connection was interrupted')
-                    break
+                    read_timout = 0
+                    for ws in self.ws_list:
+                        await self.ws_send(ws, frame)
+                else:
+                    read_timout += 1
+                    if read_timout > self.FFMPEG_READ_TIMEOUT:
+                        log.error(f'FFMPEG does not respond. Close by timeout')
+                        break
 
                 await asyncio.sleep(0.1)
+        finally:
+            await self.stop()
 
-        except Exception as error:
-            log.error(error)
+    async def stop(self):
+        if self.ffmpeg_process:
+            try:
+                self.ffmpeg_process.terminate()
+                self.ffmpeg_process = None
+            except ProcessLookupError:
+                pass
+
+        for ws in self.ws_list:
             await ws.close()
 
-    async def start(self):
+    def is_started(self):
+        return self.ffmpeg_process is not None
+
+    async def ffmpeg_start_process(self):
 
         input_params = dict()
 
@@ -63,7 +103,7 @@ class Stream:
         args = (
             ffmpeg
                 .input(self.uri, fflags='nobuffer', flags='low_delay', **input_params)
-                .filter('scale', self.width, -1)   # TODO: dynamic
+                .filter('scale', self.width, -1)  # TODO: dynamic
                 .output('pipe:', format='mpegts', vcodec='mpeg1video', r=20)['v']
                 .get_args()
         )
@@ -71,13 +111,6 @@ class Stream:
         log.info(f'Get ffmpeg stream with args {args}')
 
         self.ffmpeg_process = await asyncio.create_subprocess_exec('ffmpeg', *args, stdout=asyncio.subprocess.PIPE)
-
-    def stop(self):
-        if self.ffmpeg_process:
-            try:
-                self.ffmpeg_process.terminate()
-            except ProcessLookupError:
-                pass
 
     def get_json_object(self):
         return dict(
@@ -125,7 +158,7 @@ class StreamPool:
             to_remove = []
             for key, stream in self.streams.items():
                 if stream.ttl <= 0:
-                    stream.stop()
+                    await stream.stop()
                     to_remove.append(key)
 
             # remove streams
