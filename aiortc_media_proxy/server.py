@@ -4,6 +4,7 @@ import os
 import aiohttp
 from aiohttp import web
 from aiohttp_validate import validate
+import aiohttp_cors
 
 from aiortc_media_proxy.stream import StreamPool
 from aiortc_media_proxy.log import log
@@ -91,10 +92,18 @@ def init():
     app = web.Application()
     app['stream_pool'] = StreamPool()
 
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+
     app.router.add_get('/', handle_admin_panel)
-    app.router.add_post('/stream', handle_stream_creation)
+    cors.add(app.router.add_post('/stream', handle_stream_creation))
     app.router.add_get('/stream', handle_stream_list)
-    app.router.add_get('/ws/{key}', handle_ws)
+    cors.add(app.router.add_get('/ws/{key}', handle_ws))
     app.router.add_static('/static', os.path.join(BASE_DIR, 'static'), name='static')
 
     app.on_startup.append(on_startup)
