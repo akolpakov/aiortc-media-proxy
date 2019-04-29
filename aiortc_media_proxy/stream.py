@@ -64,9 +64,11 @@ class Stream:
             ffmpeg
                 .input(self.uri, fflags='nobuffer', flags='low_delay', **input_params)
                 .filter('scale', self.width, -1)   # TODO: dynamic
-                .output('pipe:', format='mpegts', vcodec='mpeg1video')['v']
+                .output('pipe:', format='mpegts', vcodec='mpeg1video', r=20)['v']
                 .get_args()
         )
+
+        log.info(f'Get ffmpeg stream with args {args}')
 
         self.ffmpeg_process = await asyncio.create_subprocess_exec('ffmpeg', *args, stdout=asyncio.subprocess.PIPE)
 

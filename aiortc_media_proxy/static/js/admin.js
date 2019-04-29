@@ -46,6 +46,11 @@ const app = new Vue({
             this.form.options = stream.options;
             await this.createStream();
         },
+        getWSUrl: function(ws) {
+            const url = window.location.href;
+            const ws_url = url.replace(/(http)(s)?\:\/\//, "ws$2://");
+            return ws_url.replace(/\/$/,"") + '/' + ws.replace(/^\//,"");
+        },
         showStream: async function(stream) {
             const player_canvas = document.getElementById('player');
             this.jsmpeReady = false;
@@ -54,7 +59,7 @@ const app = new Vue({
                 this.jsmpeg.destroy();
             }
 
-            this.jsmpeg = new JSMpeg.Player(this.stream.ws, {
+            this.jsmpeg = new JSMpeg.Player(this.getWSUrl(this.stream.ws), {
                 autoplay: true,
                 canvas: player_canvas,
                 onPlay: () => {
